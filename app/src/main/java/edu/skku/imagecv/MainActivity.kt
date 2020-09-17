@@ -8,21 +8,24 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Matrix
 import android.media.ExifInterface
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import android.util.Log
-import android.widget.ImageView
+import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.graphics.set
+import androidx.core.graphics.alpha
+import androidx.core.graphics.luminance
 import kotlinx.android.synthetic.main.activity_main.*
-import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.lang.NullPointerException
 
 
 class MainActivity : AppCompatActivity() {
     val REQUEST_CODE = 101
+
+    lateinit var image: Bitmap
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,11 +38,20 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 2)
         }
 
-        blurBotton.setOnClickListener {
+        imageView.setOnClickListener {
             val intent = Intent(Intent.ACTION_PICK)
             intent.type = MediaStore.Images.Media.CONTENT_TYPE
             intent.data = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
             startActivityForResult(intent, REQUEST_CODE)
+        }
+
+        blurBotton.setOnClickListener {
+            blur(image)
+        }
+
+        blackAndWhiteButton.setOnClickListener {
+            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.O) convertToBlackAndWhite(image)
+            else Toast.makeText(this, "Unsupported Version", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -50,7 +62,7 @@ class MainActivity : AppCompatActivity() {
             var exif: ExifInterface? = null
             var imagePath: String? = ""
 
-            
+
             try {
                 val fileURI = data?.data
 
@@ -77,12 +89,10 @@ class MainActivity : AppCompatActivity() {
             val orientation = exif?.getAttributeInt(ExifInterface.TAG_ORIENTATION, 1)
             val options = BitmapFactory.Options()
             options.inSampleSize = 4
-            var image = BitmapFactory.decodeFile(imagePath, options)
+            image = BitmapFactory.decodeFile(imagePath, options)
             val degrees = orientation?.let { exifOrientationToDegrees(it) }
-            image = degrees?.let { rotate(image, it) }
-
-            val gaussianImage = gaussianFilter7x7(image)
-            imageView.setImageBitmap(gaussianImage)
+            degrees?.let { image = rotate(image, it) }
+            imageView.setImageBitmap(image)
         }
     }
 
@@ -215,5 +225,28 @@ class MainActivity : AppCompatActivity() {
         }
 
         return image
+    }
+
+    fun blur(image: Bitmap) {
+        val gaussianImage = gaussianFilter7x7(image)
+        imageView.setImageBitmap(gaussianImage)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun convertToBlackAndWhite(image: Bitmap) {
+        val config = image.config
+        val newImage = image.copy(config, true)
+
+        for (i in 0 until image.width) {
+            for (j in 0 until image.height) {
+                val pixel = image.getPixel(i, j)
+                val luminance = pixel.luminance
+                val colorInt = Color.argb((pixel.alpha / 255).toFloat(), luminance, luminance, luminance)
+
+                newImage.setPixel(i, j, colorInt)
+            }
+        }
+
+        imageView.setImageBitmap(newImage)
     }
 }
