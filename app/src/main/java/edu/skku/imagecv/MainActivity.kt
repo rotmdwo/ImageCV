@@ -8,15 +8,16 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Matrix
 import android.media.ExifInterface
+import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.graphics.alpha
-import androidx.core.graphics.luminance
+import androidx.core.graphics.*
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.IOException
 import java.lang.NullPointerException
@@ -50,8 +51,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         blackAndWhiteButton.setOnClickListener {
-            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.O) convertToBlackAndWhite(image)
-            else Toast.makeText(this, "Unsupported Version", Toast.LENGTH_SHORT).show()
+            val newImage = convertToBlackAndWhite(image)
+            imageView.setImageBitmap(newImage)
+        }
+
+        edgeButton.setOnClickListener {
+
         }
     }
 
@@ -189,6 +194,7 @@ class MainActivity : AppCompatActivity() {
         return image
     }
 
+    // TODO: width, height 반대로 착각해서 필터 적용 수정
     fun gaussianFilter7x7(image: Bitmap): Bitmap {
         val filter = arrayOf(intArrayOf(0, 0, 1, 2, 1, 0, 0), intArrayOf(0, 3, 13, 22, 13, 3, 0), intArrayOf(1, 13, 59, 97, 59, 13, 1),
             intArrayOf(2, 22, 97, 159, 97, 22, 2), intArrayOf(1, 13, 59, 97, 59, 13, 1), intArrayOf(0, 3, 13, 22, 13, 3, 0), intArrayOf(0, 0, 1, 2, 1, 0, 0))
@@ -232,8 +238,7 @@ class MainActivity : AppCompatActivity() {
         imageView.setImageBitmap(gaussianImage)
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun convertToBlackAndWhite(image: Bitmap) {
+    fun convertToBlackAndWhite(image: Bitmap): Bitmap {
         val config = image.config
         val newImage = image.copy(config, true)
 
@@ -247,6 +252,76 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        imageView.setImageBitmap(newImage)
+        return newImage
+    }
+
+    
+
+    fun reflectBoundary(src: Bitmap, borderThickness: Int): Bitmap {
+        val newImage = Bitmap.createBitmap(image.width + 2 * borderThickness,
+            image.height + 2 * borderThickness, src.config)
+
+        // 원래 이미지 중앙에 복사. 픽셀 복사는 세로방향으로 되기 때문에 stride 최소값은 src.width임
+        val pixels = IntArray(src.width * src.height)
+        src.getPixels(pixels, 0, src.width, 0, 0, src.width, src.height)
+        newImage.setPixels(pixels, 0, src.width, borderThickness, borderThickness, src.width, src.height)
+
+        for (i in 0 until src.width) {
+            for (j in 0 until borderThickness) {
+                newImage.setPixel(borderThickness + i, j,
+                    newImage.getPixel(borderThickness + i, 2 * borderThickness - j - 1))
+            }
+        }
+
+        for (i in 0 until src.width) {
+            for (j in 0 until borderThickness) {
+                newImage.setPixel(borderThickness + i, borderThickness + src.height + j,
+                    newImage.getPixel(borderThickness + i, borderThickness + src.height - j - 1))
+            }
+        }
+
+        for (i in 0 until borderThickness) {
+            for (j in 0 until src.height) {
+                newImage.setPixel(i, borderThickness + j,
+                    newImage.getPixel(2 * borderThickness - i - 1, borderThickness + j))
+            }
+        }
+
+        for (i in 0 until borderThickness) {
+            for (j in 0 until src.height) {
+                newImage.setPixel(borderThickness + src.width + i, borderThickness + j,
+                    newImage.getPixel(borderThickness + src.width - i - 1, borderThickness + j))
+            }
+        }
+
+        for (i in 0 until borderThickness) {
+            for (j in 0 until borderThickness) {
+                newImage.setPixel(i, j,
+                    newImage.getPixel(2 * borderThickness - i - 1, j))
+            }
+        }
+
+        for (i in 0 until borderThickness) {
+            for (j in 0 until borderThickness) {
+                newImage.setPixel(borderThickness + src.width + i, j,
+                    newImage.getPixel(borderThickness + src.width - i - 1, j))
+            }
+        }
+
+        for (i in 0 until borderThickness) {
+            for (j in 0 until borderThickness) {
+                newImage.setPixel(borderThickness + src.width + i, borderThickness + src.height + j,
+                    newImage.getPixel(borderThickness + src.width - i - 1, borderThickness + src.height + j))
+            }
+        }
+
+        for (i in 0 until borderThickness) {
+            for (j in 0 until borderThickness) {
+                newImage.setPixel(i,borderThickness + src.height + j,
+                    newImage.getPixel(2 * borderThickness - i - 1, borderThickness + src.height + j))
+            }
+        }
+
+        return newImage
     }
 }
