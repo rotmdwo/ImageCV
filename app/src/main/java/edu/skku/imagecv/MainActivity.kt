@@ -56,7 +56,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         edgeButton.setOnClickListener {
-
+            
         }
     }
 
@@ -255,7 +255,37 @@ class MainActivity : AppCompatActivity() {
         return newImage
     }
 
-    
+    fun sobelX(image: Bitmap): Bitmap {
+        val BORDER_THICKNESS = 1
+        val filter = arrayOf(intArrayOf(1, 0, -1), intArrayOf(2, 0, -2), intArrayOf(1, 0, -1))
+        val config = image.config
+
+        val blackAndWhiteImage = convertToBlackAndWhite(image)
+
+        val newImage = Bitmap.createBitmap(image.width, image.height, config)
+        val borderedImage = reflectBoundary(blackAndWhiteImage, BORDER_THICKNESS)
+
+        for (i in 0 until image.width) {
+            for (j in 0 until image.height) {
+                var sumLuminance = 0
+                val alpha = image.getPixel(i, j).alpha
+
+                for (m in -BORDER_THICKNESS..BORDER_THICKNESS) {
+                    for (n in -BORDER_THICKNESS..BORDER_THICKNESS) {
+                        val color = borderedImage.getPixel(BORDER_THICKNESS + i + n, BORDER_THICKNESS + j + m)
+                        val luminance = color.red
+
+                        sumLuminance += filter[m + BORDER_THICKNESS][n + BORDER_THICKNESS] * luminance
+                    }
+                }
+
+                val newColor = Color.argb(alpha, sumLuminance, sumLuminance, sumLuminance)
+                newImage.setPixel(i, j, newColor)
+            }
+        }
+
+        return newImage
+    }
 
     fun reflectBoundary(src: Bitmap, borderThickness: Int): Bitmap {
         val newImage = Bitmap.createBitmap(image.width + 2 * borderThickness,
