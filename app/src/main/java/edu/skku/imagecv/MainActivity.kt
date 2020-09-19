@@ -278,6 +278,7 @@ class MainActivity : AppCompatActivity() {
                         sumLuminance += filter[m + BORDER_THICKNESS][n + BORDER_THICKNESS] * luminance
                     }
                 }
+                if (sumLuminance < 0) sumLuminance *= -1
 
                 val newColor = Color.argb(alpha, sumLuminance, sumLuminance, sumLuminance)
                 newImage.setPixel(i, j, newColor)
