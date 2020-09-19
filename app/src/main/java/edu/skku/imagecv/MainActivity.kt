@@ -21,6 +21,8 @@ import androidx.core.graphics.*
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.IOException
 import java.lang.NullPointerException
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 
 class MainActivity : AppCompatActivity() {
@@ -56,7 +58,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         edgeButton.setOnClickListener {
-            
+            val newImage = detectEdge(image)
+            imageView.setImageBitmap(newImage)
         }
     }
 
@@ -255,32 +258,85 @@ class MainActivity : AppCompatActivity() {
         return newImage
     }
 
-    fun sobelX(image: Bitmap): Bitmap {
-        val BORDER_THICKNESS = 1
-        val filter = arrayOf(intArrayOf(1, 0, -1), intArrayOf(2, 0, -2), intArrayOf(1, 0, -1))
+    fun detectEdge(image: Bitmap): Bitmap {
+        // Function in function
+        fun sobelX(image: Bitmap): Bitmap {
+            val BORDER_THICKNESS = 1
+            val filter = arrayOf(intArrayOf(1, 0, -1), intArrayOf(2, 0, -2), intArrayOf(1, 0, -1))
+            val config = image.config
+
+            val blackAndWhiteImage = convertToBlackAndWhite(image)
+
+            val newImage = Bitmap.createBitmap(image.width, image.height, config)
+            val borderedImage = reflectBoundary(blackAndWhiteImage, BORDER_THICKNESS)
+
+            for (i in 0 until image.width) {
+                for (j in 0 until image.height) {
+                    var sumLuminance = 0
+                    val alpha = image.getPixel(i, j).alpha
+
+                    for (m in -BORDER_THICKNESS..BORDER_THICKNESS) {
+                        for (n in -BORDER_THICKNESS..BORDER_THICKNESS) {
+                            val color = borderedImage.getPixel(BORDER_THICKNESS + i + n, BORDER_THICKNESS + j + m)
+                            val luminance = color.red
+
+                            sumLuminance += filter[m + BORDER_THICKNESS][n + BORDER_THICKNESS] * luminance
+                        }
+                    }
+                    if (sumLuminance < 0) sumLuminance *= -1
+
+                    val newColor = Color.argb(alpha, sumLuminance, sumLuminance, sumLuminance)
+                    newImage.setPixel(i, j, newColor)
+                }
+            }
+
+            return newImage
+        }
+
+        fun sobelY(image: Bitmap): Bitmap {
+            val BORDER_THICKNESS = 1
+            val filter = arrayOf(intArrayOf(1, 2, 1), intArrayOf(0, 0, 0), intArrayOf(-1, -2, -1))
+            val config = image.config
+
+            val blackAndWhiteImage = convertToBlackAndWhite(image)
+
+            val newImage = Bitmap.createBitmap(image.width, image.height, config)
+            val borderedImage = reflectBoundary(blackAndWhiteImage, BORDER_THICKNESS)
+
+            for (i in 0 until image.width) {
+                for (j in 0 until image.height) {
+                    var sumLuminance = 0
+                    val alpha = image.getPixel(i, j).alpha
+
+                    for (m in -BORDER_THICKNESS..BORDER_THICKNESS) {
+                        for (n in -BORDER_THICKNESS..BORDER_THICKNESS) {
+                            val color = borderedImage.getPixel(BORDER_THICKNESS + i + n, BORDER_THICKNESS + j + m)
+                            val luminance = color.red
+
+                            sumLuminance += filter[m + BORDER_THICKNESS][n + BORDER_THICKNESS] * luminance
+                        }
+                    }
+                    if (sumLuminance < 0) sumLuminance *= -1
+
+                    val newColor = Color.argb(alpha, sumLuminance, sumLuminance, sumLuminance)
+                    newImage.setPixel(i, j, newColor)
+                }
+            }
+
+            return newImage
+        }
+
+        // Beginning of function
+        val gradient = arrayOf(sobelX(image), sobelY(image))
         val config = image.config
-
-        val blackAndWhiteImage = convertToBlackAndWhite(image)
-
         val newImage = Bitmap.createBitmap(image.width, image.height, config)
-        val borderedImage = reflectBoundary(blackAndWhiteImage, BORDER_THICKNESS)
 
         for (i in 0 until image.width) {
             for (j in 0 until image.height) {
-                var sumLuminance = 0
-                val alpha = image.getPixel(i, j).alpha
-
-                for (m in -BORDER_THICKNESS..BORDER_THICKNESS) {
-                    for (n in -BORDER_THICKNESS..BORDER_THICKNESS) {
-                        val color = borderedImage.getPixel(BORDER_THICKNESS + i + n, BORDER_THICKNESS + j + m)
-                        val luminance = color.red
-
-                        sumLuminance += filter[m + BORDER_THICKNESS][n + BORDER_THICKNESS] * luminance
-                    }
-                }
-                if (sumLuminance < 0) sumLuminance *= -1
-
-                val newColor = Color.argb(alpha, sumLuminance, sumLuminance, sumLuminance)
+                val magnitude = sqrt(gradient[0].getPixel(i, j).red.toDouble().pow(2.0) +
+                        gradient[1].getPixel(i, j).red.toDouble().pow(2.0)).toInt()
+                val alpha = gradient[0].getPixel(i, j).alpha
+                val newColor = Color.argb(alpha, magnitude, magnitude, magnitude)
                 newImage.setPixel(i, j, newColor)
             }
         }
